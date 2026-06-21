@@ -125,7 +125,9 @@ def get_retriever(vectorstore: Optional[PineconeVectorStore] = None):
     retriever = (
         vectorstore.as_retriever(
             search_type="similarity",
-            search_kwargs={"k": RETRIEVER_TOP_K}
+            search_kwargs={
+                "k": RETRIEVER_TOP_K,
+            }
         )
     )
 

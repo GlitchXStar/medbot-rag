@@ -50,6 +50,7 @@ _cfg = _Config()
 PINECONE_INDEX_NAME: str = os.getenv("PINECONE_INDEX_NAME", "medbot-gale")
 PINECONE_ENVIRONMENT: str = os.getenv("PINECONE_ENVIRONMENT" , "us-east-1")
 
+OPENAI_API_BASE: str = os.getenv("OPENAI_API_BASE", "https://bharatcode.ai/api/model/v1")
 OPENAI_LLM_MODEL: str = os.getenv("OPENAI_LLM_MODEL", "bharatcode:qwen36-35b-q6-256k-vision")
 OPENAI_EMBEDDING_MODEL: str = os.getenv("OPENAI_EMBEDDING_MODEL", "BAAI/bge-base-en-v1.5")
 EMBEDDING_DIMENSION: int = int(os.getenv("EMBEDDING_DIMENSION", "768"))
