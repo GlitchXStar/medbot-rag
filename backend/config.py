@@ -71,7 +71,7 @@ DATA_DIR: Path = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
 RETRIEVER_TOP_K: int = int(os.getenv("RETRIEVER_TOP_K", "5"))
-MAX_TOKENS_RESPONSE: int = int(os.getenv("MAX_TOKENS_RESPONSE", "1024"))
+MAX_TOKENS_RESPONSE: int = int(os.getenv("MAX_TOKENS_RESPONSE", "4096"))
 LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.3"))
 
 SUPABASE_ANON_KEY: str = os.getenv("SUPABASE_ANON_KEY","")

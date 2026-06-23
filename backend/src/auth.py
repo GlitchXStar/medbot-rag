@@ -189,4 +189,4 @@ def login_user(email: str, password: str) -> dict:
             "email": email,
             "full_name": user["full_name"]
         }
-    }
+    }   
