@@ -225,15 +225,6 @@ def ask(chain: RetrievalQA, question: str) -> Dict[str, Any]:
         []
     )
 
-    print("\n========== RETRIEVED DOCUMENTS ==========\n")
-
-    for i, doc in enumerate(source_docs):
-        print(f"\nDOC {i+1}")
-        print("PAGE:", doc.metadata.get("page"))
-        print(doc.page_content[:300])
-
-    print("\n=========================================\n")
-
     seen = set()
     sources = []
 
