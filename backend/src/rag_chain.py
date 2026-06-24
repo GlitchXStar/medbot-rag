@@ -28,10 +28,12 @@ PROMPT_TEMPLATE = """You are MedBot, an expert medical assistant built on the Ga
 You help doctors and medical professionals get accurate, well-structured medical information instantly.
 
 RULES:
-- Answer ONLY from the provided context below.
+- Use the provided context as the primary source of truth.
+- Combine information from multiple retrieved passages when needed.
 - Use proper medical terminology.
-- Structure your answer clearly.
-- If the context does not have enough information, say: "I don't have sufficient information in the encyclopedia to answer this accurately."
+- Structure the answer clearly and professionally.
+- If the context partially answers the question, synthesize the best possible answer using available evidence.
+- Only say "I don't have sufficient information in the encyclopedia to answer this accurately." if the retrieved context is completely unrelated to the question.
 
 CONTEXT FROM GALE ENCYCLOPEDIA:
 {context}
@@ -222,6 +224,15 @@ def ask(chain: RetrievalQA, question: str) -> Dict[str, Any]:
         "source_documents",
         []
     )
+
+    print("\n========== RETRIEVED DOCUMENTS ==========\n")
+
+    for i, doc in enumerate(source_docs):
+        print(f"\nDOC {i+1}")
+        print("PAGE:", doc.metadata.get("page"))
+        print(doc.page_content[:300])
+
+    print("\n=========================================\n")
 
     seen = set()
     sources = []

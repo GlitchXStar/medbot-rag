@@ -4,7 +4,7 @@ from flask import Blueprint, request, jsonify, g
 
 from src.middleware import require_auth
 from src.rag_chain import build_rag_chain, ask
-from src.vectorstore import get_retriever
+from src.vectorstore import get_multi_query_retriever
 from src.logger import get_logger
 
 log = get_logger(__name__)
@@ -27,7 +27,7 @@ def _get_chain():
 
     if _retriever is None:
         log.info("Initializing retriever (first request)...")
-        _retriever = get_retriever()
+        _retriever = get_multi_query_retriever()
         log.info("Retriever ready")
 
     chain = build_rag_chain(_retriever)

@@ -10,6 +10,9 @@ from langchain_pinecone import PineconeVectorStore
 from pinecone import Pinecone, ServerlessSpec
 from tqdm import tqdm
 
+from src.retrieval.multi_query import create_multi_query_retriever
+from src.rag_chain import get_llm
+
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -129,6 +132,22 @@ def get_retriever(vectorstore: Optional[PineconeVectorStore] = None):
                 "k": RETRIEVER_TOP_K,
             }
         )
+    )
+
+    return retriever
+
+def get_multi_query_retriever(
+        vectorstore: Optional[PineconeVectorStore] = None
+):
+
+    if vectorstore is None:
+        vectorstore = load_vectorstore()
+
+    llm = get_llm()
+
+    retriever = create_multi_query_retriever(
+        vectorstore=vectorstore,
+        llm=llm
     )
 
     return retriever
