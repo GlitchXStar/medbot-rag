@@ -1,10 +1,15 @@
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
-from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
+from langchain.prompts import PromptTemplate
+
+import json
+import time
+import requests as _requests
+
+from src.retrieval.reranker import DocumentReranker
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -18,11 +23,12 @@ from config import (
 
 from src.logger import get_logger
 
-
 log = get_logger(__name__)
 
 
-from langchain.prompts import PromptTemplate
+# =========================
+# PROMPT
+# =========================
 
 PROMPT_TEMPLATE = """You are MedBot, an expert medical assistant built on the Gale Encyclopedia of Medicine (3rd Edition).
 You help doctors and medical professionals get accurate, well-structured medical information instantly.
@@ -40,38 +46,37 @@ CONTEXT FROM GALE ENCYCLOPEDIA:
 
 QUESTION: {question}
 
-Please provide a detailed medical answer based ONLY on the context above:"""
+Provide the best medically accurate answer using the retrieved context as primary evidence. If information is partial, synthesize the most likely explanation supported by the available evidence:
+"""
 
 PROMPT = PromptTemplate(
     template=PROMPT_TEMPLATE,
     input_variables=["context", "question"]
 )
 
-import json
-import time
-import requests as _requests
 
+# =========================
+# BHARATCODE AUTH
+# =========================
 
-# BharatCode uses this Supabase project for auth
 _BHARATCODE_SUPABASE_URL = "https://evgvlcaxfpwupaiwzqqm.supabase.co"
 
 
 def _refresh_bharatcode_token(creds_path: Path, refresh_token: str) -> str | None:
-    """Use the Supabase refresh_token to get a new access_token."""
     try:
         resp = _requests.post(
             f"{_BHARATCODE_SUPABASE_URL}/auth/v1/token?grant_type=refresh_token",
             json={"refresh_token": refresh_token},
             headers={
                 "Content-Type": "application/json",
-                "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"  # public anon key placeholder
+                "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
             },
             timeout=15
         )
 
         if resp.status_code == 200:
             data = resp.json()
-            # Update the credentials file with the new tokens
+
             new_creds = {
                 "access_token": data["access_token"],
                 "refresh_token": data.get("refresh_token", refresh_token),
@@ -79,13 +84,17 @@ def _refresh_bharatcode_token(creds_path: Path, refresh_token: str) -> str | Non
                 "expires_at": int(time.time()) + data.get("expires_in", 3600),
             }
 
-            # Preserve existing user info
             try:
-                old_creds = json.loads(creds_path.read_text(encoding="utf-8"))
+                old_creds = json.loads(
+                    creds_path.read_text(encoding="utf-8")
+                )
+
                 if "user" in old_creds:
                     new_creds["user"] = old_creds["user"]
+
                 if "id_token" in data:
                     new_creds["id_token"] = data["id_token"]
+
             except Exception:
                 pass
 
@@ -96,8 +105,7 @@ def _refresh_bharatcode_token(creds_path: Path, refresh_token: str) -> str | Non
 
             log.info("BharatCode token refreshed successfully")
             return data["access_token"]
-        else:
-            log.warning(f"Token refresh failed ({resp.status_code}): {resp.text[:200]}")
+
     except Exception as e:
         log.warning(f"Token refresh request failed: {e}")
 
@@ -105,102 +113,128 @@ def _refresh_bharatcode_token(creds_path: Path, refresh_token: str) -> str | Non
 
 
 def _get_bharatcode_token() -> str:
-    """Read the live OAuth access token from BharatCode credentials.
-
-    BharatCode stores a JWT access_token in ~/.bharatcode/credentials.json
-    after `bharatcode auth login`. If the token has expired, this function
-    attempts to auto-refresh using the stored refresh_token.
-    Falls back to the OPENAI_API_KEY from .env if unavailable.
-    """
     creds_path = Path.home() / ".bharatcode" / "credentials.json"
 
     if creds_path.exists():
         try:
-            creds = json.loads(creds_path.read_text(encoding="utf-8"))
+            creds = json.loads(
+                creds_path.read_text(encoding="utf-8")
+            )
+
             token = creds.get("access_token")
             expires_at = creds.get("expires_at", 0)
             refresh_token = creds.get("refresh_token")
 
-            # Check if token is expired (with 60s buffer)
             if expires_at and time.time() > (expires_at - 60):
-                log.info("BharatCode token expired, attempting auto-refresh...")
+
+                log.info("Token expired, refreshing...")
 
                 if refresh_token:
-                    new_token = _refresh_bharatcode_token(creds_path, refresh_token)
+                    new_token = _refresh_bharatcode_token(
+                        creds_path,
+                        refresh_token
+                    )
 
                     if new_token:
                         return new_token
 
-                log.warning(
-                    "Auto-refresh failed. Run `bharatcode auth login` to re-authenticate."
-                )
-
             if token:
-                log.info("Using BharatCode OAuth token from credentials.json")
+                log.info("Using BharatCode OAuth token")
                 return token
-        except (json.JSONDecodeError, KeyError) as e:
-            log.warning(f"Could not read BharatCode credentials: {e}")
 
-    log.warning("BharatCode credentials not found, falling back to OPENAI_API_KEY")
+        except Exception as e:
+            log.warning(f"Could not read credentials: {e}")
+
+    log.warning("Using fallback OPENAI_API_KEY")
     return OPENAI_API_KEY
 
 
-def get_llm(streaming: bool = False) -> ChatOpenAI:
+# =========================
+# LLM
+# =========================
+
+def get_llm() -> ChatOpenAI:
     return ChatOpenAI(
         model=OPENAI_LLM_MODEL,
         temperature=LLM_TEMPERATURE,
         max_tokens=MAX_TOKENS_RESPONSE,
         openai_api_key=_get_bharatcode_token(),
-        openai_api_base=OPENAI_API_BASE,
-        streaming=streaming
+        openai_api_base=OPENAI_API_BASE
     )
 
 
-def _create_chain(retriever, streaming: bool = False) -> RetrievalQA:
-    llm = get_llm(
-        streaming=streaming
-    )
+# =========================
+# CUSTOM RAG PIPELINE
+# =========================
 
-    chain = RetrievalQA.from_chain_type(
-        llm=llm,
-        chain_type="stuff",
-        retriever=retriever,
-        return_source_documents=True,
-        chain_type_kwargs={
-            "prompt": PROMPT,
-            "verbose": False
-        }
-    )
-    return chain
+class MedBotRAG:
+
+    def __init__(self, retriever):
+        self.retriever = retriever
+        self.reranker = DocumentReranker()
+        self.llm = get_llm()
+
+    def retrieve_documents(self, question):
+
+        docs = self.retriever.invoke(question)
+
+        log.info(f"Retrieved {len(docs)} documents")
+
+        reranked_docs = self.reranker.rerank(
+            query=question,
+            docs=docs,
+            top_k=8
+        )
+
+        print("\n========== RERANKED DOCS ==========\n")
+
+        for i, doc in enumerate(reranked_docs):
+            print(f"DOC {i+1}")
+            print("PAGE:", doc.metadata.get("page"))
+            print(doc.page_content[:400])
+            print()
+
+        print("===================================\n")
+
+        log.info(f"Reranked to top {len(reranked_docs)} documents")
+
+        return reranked_docs
+
+    def generate_answer(self, question, docs):
+
+        context = "\n\n".join(
+            [doc.page_content for doc in docs]
+        )
+
+        prompt = PROMPT.format(
+            context=context,
+            question=question
+        )
+
+        response = self.llm.invoke(prompt)
+
+        return response.content
 
 
-def build_rag_chain(retriever) -> RetrievalQA:
-    chain = _create_chain(
-        retriever=retriever,
-        streaming=False
-    )
+# =========================
+# BUILD CHAIN
+# =========================
 
-    log.info(
-        f"RAG chain initialized | model={OPENAI_LLM_MODEL}"
-    )
+def build_rag_chain(retriever):
 
-    return chain
+    rag = MedBotRAG(retriever)
 
+    log.info("Custom RAG pipeline initialized")
 
-def build_streaming_chain(retriever) -> RetrievalQA:
-    chain = _create_chain(
-        retriever=retriever,
-        streaming=True
-    )
-
-    log.info(
-        f"Streaming RAG chain initialized | model={OPENAI_LLM_MODEL}"
-    )
-
-    return chain
+    return rag
 
 
-def ask(chain: RetrievalQA, question: str) -> Dict[str, Any]:
+# =========================
+# ASK FUNCTION
+# =========================
+
+def ask(chain, question: str) -> Dict[str, Any]:
+
     if not question.strip():
         return {
             "answer": "Please provide a valid question.",
@@ -211,30 +245,29 @@ def ask(chain: RetrievalQA, question: str) -> Dict[str, Any]:
         f"Question received: {question[:80]}"
     )
 
-    result = chain.invoke({
-        "query": question
-    })
-
-    answer = result.get(
-        "result",
-        "No answer generated."
+    # retrieve + rerank
+    source_docs = chain.retrieve_documents(
+        question
     )
 
-    source_docs: List = result.get(
-        "source_documents",
-        []
+    # generate answer
+    answer = chain.generate_answer(
+        question,
+        source_docs
     )
 
     seen = set()
     sources = []
 
     for doc in source_docs:
+
         page = doc.metadata.get(
             "page",
             "?"
         )
 
         if page not in seen:
+
             seen.add(page)
 
             sources.append({
