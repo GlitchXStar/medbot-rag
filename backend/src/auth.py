@@ -1,6 +1,7 @@
 import sys
 import bcrypt
 import jwt
+import requests
 
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -159,6 +160,12 @@ def login_user(email: str, password: str) -> dict:
 
     user = result.data[0]
 
+    if user["password_hash"] is None:
+        return {
+            "success": False,
+            "error": "This account uses Google Sign-In"
+        }
+
     if not verify_password(password, user["password_hash"]):
         log.warning(f"Login Failed - Wrong Password: {email}")
 
@@ -186,7 +193,106 @@ def login_user(email: str, password: str) -> dict:
         "token": token,
         "user": {
             "id": user["id"],
-            "email": email,
+            "email": user["email"],
             "full_name": user["full_name"]
         }
-    }   
+    }
+
+
+def google_login_user(access_token: str) -> dict:
+    
+    log.info("Google Login Attempt")
+    
+    try:
+        google_response = requests.get(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            headers={
+                "Authorization": f"Bearer {access_token}"
+            }
+        )
+
+        if google_response.status_code != 200:
+            
+            log.warning("Google Authentication Failed - Invalid Token")
+            
+            return {
+                "success": False,
+                "error": "Google authentication failed"
+            }
+
+        google_data = google_response.json()
+
+        email = google_data["email"]
+        full_name = google_data.get("name", "Google User")
+        log.info(f"Google Account Verified: {email}")
+
+        result = (
+            supabase
+            .table("users")
+            .select("*")
+            .eq("email", email)
+            .execute()
+        )
+
+        log.info(f"Checking if Google user exists: {email}")
+        
+        if result.data:
+            user = result.data[0]
+
+            (
+                supabase
+                .table("users")
+                .update({
+                    "last_login": datetime.now(timezone.utc).isoformat()
+                })
+                .eq("id", user["id"])
+                .execute()
+            )
+
+            token = create_token(user["id"], email)
+            
+            log.info(f"Google Login Success (Existing User): {email}")
+            
+            return {
+                "success": True,
+                "token": token,
+                "user": {
+                    "id": user["id"],
+                    "email": email,
+                    "full_name": user["full_name"]
+                }
+            }
+
+        user = (
+            supabase
+            .table("users")
+            .insert({
+                "email": email,
+                "password_hash": None,
+                "full_name": full_name
+            })
+            .execute()
+        )
+
+        user_data = user.data[0]
+        token = create_token(user_data["id"], email)
+        
+        log.info(f"Google User Registered: {email}")
+        
+        return {
+            "success": True,
+            "token": token,
+            "user": {
+                "id": user_data["id"],
+                "email": email,
+                "full_name": full_name
+            }
+        }
+
+    except Exception as e:
+        log.error(f"Google Login Failed: {e}")
+
+        return {
+            "success": False,
+            "error": "Google authentication failed"
+        }
