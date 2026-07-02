@@ -33,7 +33,7 @@ def create_app() -> Flask:
                 "http://localhost:3000",
                 "http://127.0.0.1:3000",
             ],
-            "methods": ["GET", "POST", "OPTIONS"],
+            "methods": ["GET", "POST", "DELETE" , "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
             "supports_credentials": True,
         }

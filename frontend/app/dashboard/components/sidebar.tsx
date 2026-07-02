@@ -7,6 +7,7 @@ import {
   Settings,
   LogOut,
   X,
+  Trash2,
 } from "lucide-react";
 import clsx from "clsx";
 import type { Chat } from "../mock-data";
@@ -16,6 +17,7 @@ interface SidebarProps {
   activeChatId: string | null;
   onSelectChat: (chatId: string) => void;
   onNewChat: () => void;
+  onDeleteChat: (chatId: string) => void;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -25,6 +27,7 @@ export default function Sidebar({
   activeChatId,
   onSelectChat,
   onNewChat,
+  onDeleteChat,
   isOpen,
   onClose,
 }: SidebarProps) {
@@ -82,32 +85,55 @@ export default function Sidebar({
           <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-text-tertiary px-2 mb-2">
             Recent
           </p>
+
           <div className="space-y-0.5">
             {chats.map((chat) => (
-              <button
+              <div
                 key={chat.id}
-                onClick={() => {
-                  onSelectChat(chat.id);
-                  onClose();
-                }}
                 className={clsx(
-                  "group w-full flex items-center gap-2.5 h-[40px] px-3 rounded-lg text-[13px] transition-all duration-150 text-left truncate",
+                  "group w-full flex items-center h-[40px] px-3 rounded-lg text-[13px] transition-all duration-150",
                   activeChatId === chat.id
                     ? "bg-white/[0.07] text-text-primary font-medium border-l-2 border-accent-primary rounded-l-none"
                     : "text-text-secondary hover:bg-white/[0.04] hover:text-text-primary"
                 )}
               >
-                <MessageSquare
-                  size={14}
-                  className={clsx(
-                    "shrink-0 transition-colors",
-                    activeChatId === chat.id
-                      ? "text-accent-primary opacity-80"
-                      : "opacity-40 group-hover:opacity-60"
-                  )}
-                />
-                <span className="truncate">{chat.title}</span>
-              </button>
+                <button
+                  onClick={() => {
+                    onSelectChat(chat.id);
+                    onClose();
+                  }}
+                  className="flex items-center gap-2.5 flex-1 text-left truncate"
+                >
+                  <MessageSquare
+                    size={14}
+                    className={clsx(
+                      "shrink-0 transition-colors",
+                      activeChatId === chat.id
+                        ? "text-accent-primary opacity-80"
+                        : "opacity-40 group-hover:opacity-60"
+                    )}
+                  />
+                  <span className="truncate">{chat.title}</span>
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+
+                    const confirmed = window.confirm(
+                      "Delete this chat permanently?"
+                    );
+
+                    if (confirmed) {
+                      onDeleteChat(chat.id);
+                    }
+                  }}
+                  className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-all"
+                  aria-label="Delete chat"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
             ))}
           </div>
         </div>
@@ -117,6 +143,7 @@ export default function Sidebar({
             <Settings size={14} className="opacity-50" />
             Settings
           </button>
+
           <button className="w-full flex items-center gap-2.5 h-[38px] px-3 rounded-lg text-[13px] text-text-secondary hover:bg-red-500/[0.06] hover:text-red-400 transition-all duration-150">
             <LogOut size={14} className="opacity-50" />
             Logout

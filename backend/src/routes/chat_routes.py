@@ -184,6 +184,7 @@ def chat():
             "error": "Failed to process your question. Please try again."
         }), 500
 
+
 @chat_bp.route("/chat/history", methods=["GET"])
 @require_auth
 def get_chat_history():
@@ -216,6 +217,7 @@ def get_chat_history():
         return jsonify({
             "error": "Failed to fetch chat history"
         }), 500
+
 
 @chat_bp.route("/chat/session/<session_id>", methods=["GET"])
 @require_auth
@@ -264,4 +266,55 @@ def get_chat_messages(session_id):
 
         return jsonify({
             "error": "Failed to load chat"
+        }), 500
+
+
+@chat_bp.route("/chat/session/<session_id>", methods=["DELETE"])
+@require_auth
+def delete_chat_session(session_id):
+    try:
+        session = (
+            supabase
+            .table("chat_sessions")
+            .select("*")
+            .eq("id", session_id)
+            .eq("user_id", g.user_id)
+            .execute()
+        )
+
+        if not session.data:
+            return jsonify({
+                "error": "Chat session not found"
+            }), 404
+
+        (
+            supabase
+            .table("messages")
+            .delete()
+            .eq("session_id", session_id)
+            .execute()
+        )
+
+        (
+            supabase
+            .table("chat_sessions")
+            .delete()
+            .eq("id", session_id)
+            .execute()
+        )
+
+        log.info(
+            f"Chat deleted | user={g.user_email} | session={session_id}"
+        )
+
+        return jsonify({
+            "success": True,
+            "message": "Chat deleted successfully"
+        }), 200
+
+    except Exception as e:
+        log.error(f"Delete chat error: {e}")
+
+        return jsonify({
+            "error": "Failed to delete chat"
         }), 500

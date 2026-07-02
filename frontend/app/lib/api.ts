@@ -165,3 +165,20 @@ export async function apiChat(
     };
   }
 }
+
+export async function apiDeleteChatSession(
+  sessionId: string,
+  token: string
+) {
+  const res = await fetch(
+    `${API_BASE}/api/chat/session/${sessionId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return await res.json();
+}

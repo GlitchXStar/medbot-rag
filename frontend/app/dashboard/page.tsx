@@ -7,6 +7,7 @@ import {
   apiCreateSession,
   apiGetChatHistory,
   apiGetSessionMessages,
+  apiDeleteChatSession,
 } from "../lib/api";
 import Sidebar from "./components/sidebar";
 import TopBar from "./components/top-bar";
@@ -75,18 +76,39 @@ export default function DashboardPage() {
             ? {
                 ...chat,
                 messages: data.messages.map((msg: any, index: number) => ({
-  id: `msg-${index}`,
-  role: msg.role,
-  content: msg.content,
-  sources: msg.sources,
-  timestamp: msg.timestamp || new Date().toISOString(),
-})),
+                  id: `msg-${index}`,
+                  role: msg.role,
+                  content: msg.content,
+                  sources: msg.sources,
+                  timestamp: msg.timestamp || new Date().toISOString(),
+                })),
               }
             : chat
         )
       );
     },
     [token]
+  );
+
+  const handleDeleteChat = useCallback(
+    async (chatId: string) => {
+      const result = await apiDeleteChatSession(chatId, token || "");
+
+      if (result.success) {
+        const updatedChats = chats.filter((chat) => chat.id !== chatId);
+
+        setChats(updatedChats);
+
+        if (activeChatId === chatId) {
+          if (updatedChats.length > 0) {
+            setActiveChatId(updatedChats[0].id);
+          } else {
+            setActiveChatId("");
+          }
+        }
+      }
+    },
+    [token, chats, activeChatId]
   );
 
   const ensureActiveChat = useCallback(async () => {
@@ -193,6 +215,7 @@ export default function DashboardPage() {
         activeChatId={activeChatId}
         onSelectChat={handleSelectChat}
         onNewChat={handleNewChat}
+        onDeleteChat={handleDeleteChat}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
