@@ -20,8 +20,8 @@ export default function LoginPage() {
   const googleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
       setError("");
+
       try {
-        // Send the authorization code to the backend
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/google`,
           {
@@ -30,7 +30,7 @@ export default function LoginPage() {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              code: tokenResponse.code, // Backend expects access_token
+              access_token: tokenResponse.access_token,
             }),
           }
         );
@@ -42,17 +42,22 @@ export default function LoginPage() {
           return;
         }
 
-        // Forgot to persist session to cookies/localstorage
+        saveAuth(result.token, {
+          id: result.user.id,
+          email: result.user.email,
+          full_name: result.user.full_name,
+        });
+
         router.push("/dashboard");
       } catch (err) {
         console.error(err);
         setError("Google login failed");
       }
     },
+
     onError: () => {
       setError("Google Sign-In failed");
     },
-    flow: "auth-code", // Request authorization code instead of access token
   });
 
   async function handleSubmit(e: React.FormEvent) {
@@ -74,7 +79,6 @@ export default function LoginPage() {
       return;
     }
 
-    // Save auth state to cookies and redirect
     saveAuth(result.token!, {
       id: result.user!.id,
       email: result.user!.email,
@@ -86,7 +90,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg-primary relative px-4">
-      {/* Background glow */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -101,7 +104,6 @@ export default function LoginPage() {
         transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] as [number, number, number, number] }}
         className="relative w-full max-w-[420px]"
       >
-        {/* Logo */}
         <div className="flex items-center justify-center gap-2 mb-10">
           <div className="h-2.5 w-2.5 rounded-full bg-accent-primary shadow-[0_0_10px_rgba(37,99,235,0.5)]" />
           <span className="text-xl font-semibold tracking-[-0.02em] text-text-primary">
@@ -112,7 +114,6 @@ export default function LoginPage() {
           </span>
         </div>
 
-        {/* Card */}
         <div className="rounded-3xl bg-white/[0.03] border border-white/[0.06] p-8 backdrop-blur-sm">
           <h1 className="text-[22px] font-semibold text-text-primary text-center mb-1 tracking-[-0.02em]">
             Welcome back
@@ -121,7 +122,6 @@ export default function LoginPage() {
             Sign in to continue to MedBot AI
           </p>
 
-          {/* Google Sign In */}
           <button
             type="button"
             onClick={() => googleLogin()}
@@ -136,7 +136,6 @@ export default function LoginPage() {
             Continue with Google
           </button>
 
-          {/* Divider */}
           <div className="flex items-center gap-3 mb-6">
             <div className="flex-1 h-px bg-white/[0.06]" />
             <span className="text-[12px] text-text-tertiary uppercase tracking-wider">
@@ -145,7 +144,6 @@ export default function LoginPage() {
             <div className="flex-1 h-px bg-white/[0.06]" />
           </div>
 
-          {/* Error message */}
           {error && (
             <motion.div
               initial={{ opacity: 0, y: -4 }}
@@ -156,15 +154,12 @@ export default function LoginPage() {
             </motion.div>
           )}
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label
-                htmlFor="login-email"
-                className="block text-[13px] font-medium text-text-secondary mb-2"
-              >
+              <label htmlFor="login-email" className="block text-[13px] font-medium text-text-secondary mb-2">
                 Email
               </label>
+
               <input
                 id="login-email"
                 type="email"
@@ -178,12 +173,10 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label
-                htmlFor="login-password"
-                className="block text-[13px] font-medium text-text-secondary mb-2"
-              >
+              <label htmlFor="login-password" className="block text-[13px] font-medium text-text-secondary mb-2">
                 Password
               </label>
+
               <div className="relative">
                 <input
                   id="login-password"
@@ -195,11 +188,11 @@ export default function LoginPage() {
                   disabled={loading}
                   className="w-full h-[46px] px-4 pr-11 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[14px] text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent-primary/40 focus:shadow-[0_0_0_1px_rgba(37,99,235,0.15),0_0_12px_rgba(37,99,235,0.06)] transition-all duration-200 disabled:opacity-50"
                 />
+
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary transition-colors"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -223,7 +216,6 @@ export default function LoginPage() {
           </form>
         </div>
 
-        {/* Bottom link */}
         <p className="text-center text-[13px] text-text-tertiary mt-6">
           Don&apos;t have an account?{" "}
           <Link
