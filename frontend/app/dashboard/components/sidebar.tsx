@@ -30,7 +30,6 @@ export default function Sidebar({
 }: SidebarProps) {
   return (
     <>
-      {/* Mobile overlay */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -44,14 +43,12 @@ export default function Sidebar({
         )}
       </AnimatePresence>
 
-      {/* Sidebar */}
       <aside
         className={clsx(
           "fixed lg:relative top-0 left-0 z-50 lg:z-auto h-full w-[280px] shrink-0 flex flex-col bg-[#0B1120] border-r border-white/[0.06] transition-transform duration-300 ease-out lg:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-5 h-[70px] border-b border-white/[0.04]">
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 rounded-full bg-accent-primary shadow-[0_0_8px_rgba(37,99,235,0.4)]" />
@@ -71,7 +68,6 @@ export default function Sidebar({
           </button>
         </div>
 
-        {/* New Chat Button */}
         <div className="px-3 pt-4 pb-2">
           <button
             onClick={onNewChat}
@@ -82,7 +78,6 @@ export default function Sidebar({
           </button>
         </div>
 
-        {/* Recent Chats */}
         <div className="flex-1 overflow-y-auto px-3 py-2">
           <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-text-tertiary px-2 mb-2">
             Recent
@@ -117,7 +112,6 @@ export default function Sidebar({
           </div>
         </div>
 
-        {/* Bottom Actions */}
         <div className="border-t border-white/[0.04] px-3 py-3 space-y-0.5">
           <button className="w-full flex items-center gap-2.5 h-[38px] px-3 rounded-lg text-[13px] text-text-secondary hover:bg-white/[0.04] hover:text-text-primary transition-all duration-150">
             <Settings size={14} className="opacity-50" />

@@ -8,8 +8,6 @@
 const API_BASE =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
 
-/* ─── Types ────────────────────────────────────────────────── */
-
 export interface AuthResponse {
   success: boolean;
   token?: string;
@@ -35,7 +33,19 @@ export interface ChatResponse {
   error?: string;
 }
 
-/* ─── Auth ─────────────────────────────────────────────────── */
+export interface ChatSession {
+  id: string;
+  title: string;
+  createdAt: string;
+}
+
+export interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  sources?: ChatSource[];
+  timestamp: string;
+}
 
 export async function apiLogin(
   email: string,
@@ -84,9 +94,42 @@ export async function apiRegister(
   }
 }
 
-/* ─── Chat ─────────────────────────────────────────────────── */
+export async function apiCreateSession(token: string) {
+  const res = await fetch(`${API_BASE}/api/chat/session`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return await res.json();
+}
+
+export async function apiGetChatHistory(token: string) {
+  const res = await fetch(`${API_BASE}/api/chat/history`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return await res.json();
+}
+
+export async function apiGetSessionMessages(
+  sessionId: string,
+  token: string
+) {
+  const res = await fetch(`${API_BASE}/api/chat/session/${sessionId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return await res.json();
+}
 
 export async function apiChat(
+  sessionId: string,
   message: string,
   token: string
 ): Promise<ChatResponse> {
@@ -97,7 +140,10 @@ export async function apiChat(
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({
+        session_id: sessionId,
+        message,
+      }),
     });
 
     const data = await res.json();

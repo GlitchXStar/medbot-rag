@@ -9,7 +9,7 @@ def create_multi_query_retriever(vectorstore, llm):
     base_retriever = vectorstore.as_retriever(
         search_type="similarity",
         search_kwargs={
-            "k": 8
+            "k": 5
         }
     )
 

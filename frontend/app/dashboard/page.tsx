@@ -1,8 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useAuthGuard } from "../lib/use-auth-guard";
-import { apiChat } from "../lib/api";
+import {
+  apiChat,
+  apiCreateSession,
+  apiGetChatHistory,
+  apiGetSessionMessages,
+} from "../lib/api";
 import Sidebar from "./components/sidebar";
 import TopBar from "./components/top-bar";
 import ChatArea from "./components/chat-area";
@@ -19,36 +24,93 @@ export default function DashboardPage() {
 
   const activeChat = chats.find((c) => c.id === activeChatId) ?? chats[0];
 
-  const handleNewChat = useCallback(() => {
+  useEffect(() => {
+    const loadChats = async () => {
+      if (!token) return;
+
+      const data = await apiGetChatHistory(token);
+
+      if (data.chats) {
+        const formattedChats = data.chats.map((chat: any) => ({
+          id: chat.id,
+          title: chat.title || "New Conversation",
+          messages: [],
+          createdAt: chat.created_at,
+        }));
+
+        setChats(formattedChats);
+
+        if (formattedChats.length > 0) {
+          setActiveChatId(formattedChats[0].id);
+        }
+      }
+    };
+
+    loadChats();
+  }, [token]);
+
+  const handleNewChat = useCallback(async () => {
+    const session = await apiCreateSession(token || "");
+
     const newChat: Chat = {
-      id: `chat-${Date.now()}`,
+      id: session.session_id,
       title: "New Conversation",
       messages: [],
       createdAt: new Date().toISOString(),
     };
+
     setChats((prev) => [newChat, ...prev]);
     setActiveChatId(newChat.id);
-  }, []);
+  }, [token]);
 
-  // Create an initial empty chat if none exists
-  const ensureActiveChat = useCallback(() => {
+  const handleSelectChat = useCallback(
+    async (chatId: string) => {
+      setActiveChatId(chatId);
+
+      const data = await apiGetSessionMessages(chatId, token || "");
+
+      setChats((prev) =>
+        prev.map((chat) =>
+          chat.id === chatId
+            ? {
+                ...chat,
+                messages: data.messages.map((msg: any, index: number) => ({
+  id: `msg-${index}`,
+  role: msg.role,
+  content: msg.content,
+  sources: msg.sources,
+  timestamp: msg.timestamp || new Date().toISOString(),
+})),
+              }
+            : chat
+        )
+      );
+    },
+    [token]
+  );
+
+  const ensureActiveChat = useCallback(async () => {
     if (chats.length === 0) {
+      const session = await apiCreateSession(token || "");
+
       const newChat: Chat = {
-        id: `chat-${Date.now()}`,
+        id: session.session_id,
         title: "New Conversation",
         messages: [],
         createdAt: new Date().toISOString(),
       };
+
       setChats([newChat]);
       setActiveChatId(newChat.id);
       return newChat.id;
     }
+
     return activeChatId || chats[0]?.id;
-  }, [chats, activeChatId]);
+  }, [chats, activeChatId, token]);
 
   const handleSend = useCallback(
     async (content: string) => {
-      const currentChatId = ensureActiveChat();
+      const currentChatId = await ensureActiveChat();
 
       const userMessage: Message = {
         id: `msg-${Date.now()}`,
@@ -71,11 +133,9 @@ export default function DashboardPage() {
         })
       );
 
-      // Show typing indicator
       setIsTyping(true);
 
-      // Call the real RAG API
-      const result = await apiChat(content, token || "");
+      const result = await apiChat(currentChatId, content, token || "");
 
       setIsTyping(false);
 
@@ -115,7 +175,6 @@ export default function DashboardPage() {
     [handleSend]
   );
 
-  // Show loading state while auth is being checked
   if (authLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-bg-primary">
@@ -132,7 +191,7 @@ export default function DashboardPage() {
       <Sidebar
         chats={chats}
         activeChatId={activeChatId}
-        onSelectChat={setActiveChatId}
+        onSelectChat={handleSelectChat}
         onNewChat={handleNewChat}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}

@@ -93,3 +93,7 @@ def __getattr__(name: str):
     if name in _LAZY_SECRETS:
         return getattr(_cfg, name)
     raise AttributeError(f"module 'config' has no attribute {name!r}")
+
+def __dir__():
+    return sorted(list(globals().keys()) + list(_LAZY_SECRETS))
+

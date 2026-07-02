@@ -5,13 +5,12 @@ import requests
 
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from supabase import create_client
+from src.database import supabase
+
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from config import (
-    SUPABASE_URL,
-    SUPABASE_SERVICE_KEY,
     JWT_SECRET,
     JWT_EXPIRY_HOURS
 )
@@ -21,7 +20,6 @@ from src.logger import get_logger
 
 log = get_logger(__name__)
 
-supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 
 def hash_password(password: str) -> str:

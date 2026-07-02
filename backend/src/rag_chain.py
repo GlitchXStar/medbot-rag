@@ -1,4 +1,5 @@
 import sys
+import time
 from pathlib import Path
 from typing import Any, Dict
 
@@ -6,7 +7,6 @@ from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 
 import json
-import time
 import requests as _requests
 
 from src.retrieval.reranker import DocumentReranker
@@ -176,9 +176,17 @@ class MedBotRAG:
 
     def retrieve_documents(self, question):
 
+        # -------- Retrieval timing --------
+        retrieval_start = time.time()
+
         docs = self.retriever.invoke(question)
 
+        retrieval_time = time.time() - retrieval_start
         log.info(f"Retrieved {len(docs)} documents")
+        log.info(f"Retrieval took {retrieval_time:.2f} seconds")
+
+        # -------- Reranking timing --------
+        rerank_start = time.time()
 
         reranked_docs = self.reranker.rerank(
             query=question,
@@ -186,17 +194,9 @@ class MedBotRAG:
             top_k=8
         )
 
-        print("\n========== RERANKED DOCS ==========\n")
-
-        for i, doc in enumerate(reranked_docs):
-            print(f"DOC {i+1}")
-            print("PAGE:", doc.metadata.get("page"))
-            print(doc.page_content[:400])
-            print()
-
-        print("===================================\n")
-
+        rerank_time = time.time() - rerank_start
         log.info(f"Reranked to top {len(reranked_docs)} documents")
+        log.info(f"Reranking took {rerank_time:.2f} seconds")
 
         return reranked_docs
 
@@ -211,7 +211,13 @@ class MedBotRAG:
             question=question
         )
 
+        # -------- Generation timing --------
+        generation_start = time.time()
+
         response = self.llm.invoke(prompt)
+
+        generation_time = time.time() - generation_start
+        log.info(f"LLM generation took {generation_time:.2f} seconds")
 
         return response.content
 
@@ -240,6 +246,8 @@ def ask(chain, question: str) -> Dict[str, Any]:
             "answer": "Please provide a valid question.",
             "sources": []
         }
+
+    total_start = time.time()
 
     log.info(
         f"Question received: {question[:80]}"
@@ -275,11 +283,18 @@ def ask(chain, question: str) -> Dict[str, Any]:
                 "preview": doc.page_content[:150].replace("\n", " ") + "..."
             })
 
+    total_time = time.time() - total_start
+
     log.info(
         f"Answer generated | sources={len(sources)}"
+    )
+
+    log.info(
+        f"TOTAL PIPELINE TIME: {total_time:.2f} seconds"
     )
 
     return {
         "answer": answer,
         "sources": sources
     }
+    
